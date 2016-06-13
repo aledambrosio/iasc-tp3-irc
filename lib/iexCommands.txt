@@ -1,5 +1,4 @@
-emisores = []
-server = IRCServer.start(emisores)
+server = IRCServer.start([])
 pidClient1 = IRCClient.start
 send server, {pidClient1, :connect, "usuario1"}
 pidClient2 = IRCClient.start

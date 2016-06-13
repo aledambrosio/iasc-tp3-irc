@@ -2,11 +2,13 @@ defmodule Client do
   defstruct username: "", pid: nil, mutedList: []
 end
 
+ 
 defmodule IRCServer do
 
-  def addMute(emisorList, receptor) do
-    #List.flatten(Map.get(emisorList,:mutedList),[receptor])
-    List.insert_at(emisorList, -1, receptor)
+  def addMute(usuarios, receptor) do
+    IO.puts "addMute: usuarios #{inspect usuarios}"
+    List.flatten(usuarios,[receptor])
+#    List.flatten(Map.get(usuarios,:mutedList),[receptor])
   end
 
   def isMuted(emisorClient, emisor) do
@@ -14,23 +16,23 @@ defmodule IRCServer do
     	mutedList = Map.get(emisorClient, :mutedList)
     	if (Enum.member?(mutedList, emisor)) do          
       	true
-    	  else
+    	else
       	false
     	end    
     else
     	false
-	end
+	  end
   end
 
   def filterClient(clients, client) do
     Enum.filter clients, fn x ->
-      Map.get(x,:pid) != client
+      Map.get(x,:pid) != client.pid
     end    
   end
 
-  def getEmisor(emisores, emisor) do
-    IO.puts "emisores: #{inspect emisores} / emisor: #{inspect emisor}"
-    Enum.find emisores, fn x ->
+  def getEmisor(usuarios, emisor) do
+    IO.puts "usuarios: #{inspect usuarios} / emisor: #{inspect emisor}"
+    Enum.find usuarios, fn x ->
       Map.get(x,:pid) == emisor
     end
   end
@@ -39,45 +41,38 @@ defmodule IRCServer do
     Map.get(client,:mutedList)
   end
 
-  def start(emisores) do
-    spawn(fn -> loop(emisores) end)
+  def start(usuarios) do
+    spawn(fn -> loop(usuarios) end)
   end
 
-  def loop(emisores) do
+  def loop(usuarios) do
     receive do
       {pid, :connect, user} ->
       	client = %Client{pid: pid, username: user, mutedList: []}
       	IO.puts "SERVER: Se conectó: #{inspect client.pid} #{inspect client.username} #{inspect client.mutedList}"
-      	List.insert_at List.wrap(emisores), -1, client
-      	IO.puts "Al conectar cliente: emisores #{inspect emisores}"
-      	loop(emisores)
+        loop([client|usuarios])
       {emisor, receptor, :message, text} ->
       	IO.puts "SERVER: redirecting message to #{inspect receptor}"
       	send receptor, {self, emisor, :leer, text}
-      	loop(emisores)
       {receptor, emisor, :visto, text} -> 
-      	emisorClient = getEmisor(emisores, emisor)
+      	emisorClient = getEmisor(usuarios, emisor)
         if (!isMuted(emisorClient, receptor)) do
-	    	IO.puts "SERVER: redirecting visto to #{inspect emisor}"
-	    	send emisor, {receptor, :visto, text}
+	    	  IO.puts "SERVER: not muted, redirecting visto to #{inspect emisor}"
+	    	  send emisor, {receptor, :visto, text}
         end
-      	loop(emisores)
       {emisor, receptor, :escribe} ->
       	send receptor, {emisor, :escribe}
-      	loop(emisores)
       {receptor, emisor, :silenciar} -> 
-      	emisorClient = getEmisor(emisores, emisor)
-		emisorList = filterClient(emisores, emisor)
-
-      	IO.puts "emisorClient: #{inspect emisorClient}"
-      	addMute(List.wrap(emisorList), receptor)
-
-        loop(emisores) 
+      	emisorClient = getEmisor(usuarios, emisor)
+        IO.puts "emisorClient: #{inspect emisorClient}"
+#		    mutedList = filterClient(usuarios, emisor)
+        IO.puts "mutedList: #{inspect emisorClient.mutedList}"
+      	addMute(emisorClient.mutedList, receptor)
+        loop(usuarios)
 	  {pid, _ } -> 
 	  	send pid, {:error, 'Accion Invalida de #{inspect pid}'}
-       	loop(emisores)
     end
-    loop(emisores)
+    loop(usuarios)
   end
 end
 
