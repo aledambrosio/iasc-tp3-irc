@@ -3,11 +3,13 @@ pidClient1 = IRCClient.start
 send server, {pidClient1, :connect, "usuario1"}
 pidClient2 = IRCClient.start
 send server, {pidClient2, :connect, "usuario2"}
-send server, {pidClient1, pidClient2, :message, "Hola"}
 send server, {pidClient2, pidClient1, :silenciar}
+
 send server, {pidClient1, pidClient2, :message, "Hola"}
 
+usuarios = [%{name: "user1", id: "1", lista: []}, %{name: "user2", id: "2", lista: []} ]
 
+Enum.each usuarios, fn x -> Map.get x, :id, "2"
 
 **********************
 
