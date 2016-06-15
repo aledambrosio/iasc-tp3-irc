@@ -1,15 +1,22 @@
+#Test 1: Silencio de :escribiendo y de recibir mensaje del emisor
 server = IRCServer.start([])
 pidClient1 = IRCClient.start
-send server, {pidClient1, :connect, "usuario1"}
+send pidClient1, {server, :connect, "usuario1"}
 pidClient2 = IRCClient.start
-send server, {pidClient2, :connect, "usuario2"}
-send server, {pidClient2, pidClient1, :silenciar}
+send pidClient2, {server, :connect, "usuario2"}
+send pidClient1, {pidClient2, :escribir, "Hola"}
+send pidClient2, {pidClient1, :silenciar}
+send pidClient1, {pidClient2, :escribir, "Hola"}
 
-send server, {pidClient1, pidClient2, :message, "Hola"}
+#Test 2: Silencio de :visto por el receptor
+server = IRCServer.start([])
+pidClient1 = IRCClient.start
+send pidClient1, {server, :connect, "usuario1"}
+pidClient2 = IRCClient.start
+send pidClient2, {server, :connect, "usuario2"}
+send pidClient1, {pidClient2, :escribir, "Hola"}
+send pidClient1, {pidClient2, :silenciar}
+send pidClient1, {pidClient2, :escribir, "Hola"}
 
-usuarios = [%{name: "user1", id: "1", lista: []}, %{name: "user2", id: "2", lista: []} ]
-
-Enum.each usuarios, fn x -> Map.get x, :id, "2"
 
 **********************
-
