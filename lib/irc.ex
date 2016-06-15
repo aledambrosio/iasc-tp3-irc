@@ -6,6 +6,7 @@ end
 defmodule IRCServer do
 
   def isMuted(client, element) do
+    IO.puts "isMuted? client #{inspect client}"
     muted = Map.get(client, :mutedList)
     if (Enum.member?(muted, element)) do
       true
@@ -47,20 +48,52 @@ defmodule IRCServer do
   end
 
   def loop(usuarios) do
+    #IO.puts "SERVER: Usuarios: #{inspect usuarios}"
     receive do
       {pid, :connect, user} ->
       	client = %Client{pid: pid, username: user, mutedList: []}
       	IO.puts "SERVER: New connection: #{inspect client.pid} #{inspect client.username} #{inspect client.mutedList}"
         loop([client|usuarios])
-      {emisor, receptor, :message, text} ->
+      {emisor, :message, text} ->
+        IO.puts "SERVER: Broadcast: Usuario #{inspect emisor} envió un broadcast"
+        usuariosRestantes = filter(usuarios, emisor)
+        send self, {emisor, usuariosRestantes, :broadcast, text}
+        IO.puts "SERVER: Broadcast: fin broadcast"
+        loop(usuarios)
+      {_, [], :broadcast, _} ->
+        IO.puts "SERVER: Broadcast: fin recursividad"
+        loop(usuarios)
+      {emisor, [receptor|restantes], :broadcast, text} ->
+        #IO.puts "SERVER: Broadcast: recursividad"
+        send self, {emisor, receptor.pid, :enviar, text}
+        send self, {emisor, restantes, :broadcast, text}
+        loop(usuarios)
+      {emisor, receptor, :enviar, text} ->
         receptorUser = getUsuario(usuarios, receptor)
+        IO.puts ":enviar emisor #{inspect emisor} receptor #{inspect receptor} #{inspect receptorUser} " 
         if (!isMuted(receptorUser, emisor)) do
+          IO.puts "SERVER-':enviar' a #{inspect receptor}"
           send receptor, {self, emisor, :leer, text}
         else
           IO.puts "SERVER-':leer' Usuario #{inspect emisor} fue silenciado por #{inspect receptor}"
         end
         loop(usuarios)
+      {emisor, receptor, :message, text} ->
+        send self, {emisor, receptor, :enviar, text}
+        loop(usuarios)
+      {receptor, :visto, text} -> 
+        usuariosRestantes = filter(usuarios, receptor)
+        send self, {receptor, usuariosRestantes, :visto, text}
+        loop(usuarios)
+      {_, [], :visto, _} -> 
+        IO.puts "SERVER: visto: fin recursividad"
+        loop(usuarios)
+      {lector, [emisor|restantes], :visto, text} -> 
+        send self, {lector, emisor.pid, :visto, text}
+        send self, {lector, restantes, :visto, text}
+        loop(usuarios)
       {lector, emisor, :visto, text} -> 
+        IO.puts ":visto emisor #{inspect emisor}" # User #{inspect emisorUser} 
       	emisorUser = getUsuario(usuarios, emisor)
         if (!isMuted(emisorUser, lector)) do
 	    	  send emisor, {lector, :visto, text}
@@ -68,13 +101,27 @@ defmodule IRCServer do
           IO.puts "SERVER-':visto' Usuario #{inspect lector} fue silenciado por #{inspect emisor}"
         end
         loop(usuarios)
+      {emisor, :escribiendo} ->
+        usuariosRestantes = filter(usuarios, emisor)
+        send self, {emisor, usuariosRestantes, :escribiendo}
+        loop(usuarios)
+      {_, [], :escribiendo} ->
+        IO.puts "SERVER: escribiendo: fin recursividad"
+        loop(usuarios)
+      {emisor, [receptor|restantes], :escribiendo} ->
+        IO.puts ":escribiendo varios - receptor #{inspect receptor} #{inspect restantes}"
+        send self, {emisor, receptor.pid, :escribiendo}
+        send self, {emisor, restantes, :escribiendo}
+        loop(usuarios)
       {emisor, receptor, :escribiendo} ->
+        IO.puts ":escribiendo receptor #{inspect receptor}" #  #{inspect receptorUser} 
         receptorUser = getUsuario(usuarios, receptor)
         if (!isMuted(receptorUser, emisor)) do
           send receptor, {emisor, :escribiendo}
         else
           IO.puts "SERVER-':escribiendo' Usuario #{inspect receptor} fue silenciado por #{inspect emisor}"
         end
+        loop(usuarios)
       {lector, emisor, :silenciar} -> 
         usuario = getUsuario(usuarios, lector)
         restantes = filter(usuarios, lector)
@@ -86,7 +133,7 @@ defmodule IRCServer do
 	  {pid, _ } -> 
 	  	send pid, {:error, 'Invalid action from #{inspect pid}'}
     end
-    loop(usuarios)
+    #loop(usuarios)
   end
 end
 
@@ -103,7 +150,7 @@ defmodule IRCClient do
         loop(serverPid)
       {serverPid, emisor, :leer, text} -> 
       	IO.puts "CLIENT: #{inspect emisor} dice: #{inspect text}"
-      	send serverPid, {self, emisor, :visto, text}
+      	send serverPid, {self, :visto, text}
       	loop(server)
       {receptor, :visto, text} ->
       	IO.puts "CLIENT: #{inspect receptor} ha visto el mensaje: #{inspect text}"
@@ -111,6 +158,11 @@ defmodule IRCClient do
       {emisor, :escribiendo} ->
       	IO.puts "CLIENT: #{inspect emisor} está escribiendo..."
       	loop(server)
+      {:escribir, texto} ->
+        send server, {self, :escribiendo}
+        :timer.sleep(3* 1000)
+        send server, {self, :message, texto}
+        loop(server)
       {receptor, :escribir, texto} ->
         send server, {self, receptor, :escribiendo}
         :timer.sleep(3* 1000)
@@ -123,6 +175,6 @@ defmodule IRCClient do
       	send :pid, {:error, 'Accion Inválida de #{inspect pid}'}
       	loop(server)
     end
-    loop(server)
+    #loop(server)
   end
 end

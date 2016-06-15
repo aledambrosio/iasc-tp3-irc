@@ -1,5 +1,6 @@
 #Test 1: Silencio de :escribiendo y de recibir mensaje del emisor
-server = IRCServer.start([])
+usuarios = []
+server = IRCServer.start(usuarios)
 pidClient1 = IRCClient.start
 send pidClient1, {server, :connect, "usuario1"}
 pidClient2 = IRCClient.start
@@ -9,7 +10,8 @@ send pidClient2, {pidClient1, :silenciar}
 send pidClient1, {pidClient2, :escribir, "Hola"}
 
 #Test 2: Silencio de :visto por el receptor
-server = IRCServer.start([])
+usuarios = []
+server = IRCServer.start(usuarios)
 pidClient1 = IRCClient.start
 send pidClient1, {server, :connect, "usuario1"}
 pidClient2 = IRCClient.start
@@ -20,3 +22,13 @@ send pidClient1, {pidClient2, :escribir, "Hola"}
 
 
 **********************
+#Test 3: Broadcast
+usuarios = []
+server = IRCServer.start(usuarios)
+pidClient1 = IRCClient.start
+send pidClient1, {server, :connect, "usuario1"}
+pidClient2 = IRCClient.start
+send pidClient2, {server, :connect, "usuario2"}
+pidClient3 = IRCClient.start
+send pidClient2, {server, :connect, "usuario3"}
+send pidClient1, {:escribir, "Hola"}
