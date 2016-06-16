@@ -30,5 +30,7 @@ send pidClient1, {server, :connect, "usuario1"}
 pidClient2 = IRCClient.start
 send pidClient2, {server, :connect, "usuario2"}
 pidClient3 = IRCClient.start
-send pidClient2, {server, :connect, "usuario3"}
+send pidClient3, {server, :connect, "usuario3"}
+send pidClient1, {:escribir, "Hola"}
+send pidClient2, {pidClient1, :silenciar}
 send pidClient1, {:escribir, "Hola"}
