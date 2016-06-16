@@ -72,9 +72,9 @@ defmodule IRCServer do
 #        IO.puts ":enviar emisor #{inspect emisor} receptor #{inspect receptor} #{inspect receptorUser} " 
         if (!isMuted(receptorUser, emisor)) do
 #          IO.puts "SERVER-':enviar' a #{inspect receptor}"
-          send receptor, {self, emisor, :leer, text}
+          send receptor, {self, emisor, :recibir, text}
         else
-#          IO.puts "SERVER-':leer' Usuario #{inspect emisor} fue silenciado por #{inspect receptor}"
+#          IO.puts "SERVER-':recibir' Usuario #{inspect emisor} fue silenciado por #{inspect receptor}"
         end
         loop(usuarios)
       {emisor, receptor, :message, text} ->
@@ -146,6 +146,11 @@ defmodule IRCClient do
       {serverPid, :connect, username} -> 
         send serverPid, {self, :connect, username}
         loop(serverPid)
+      {serverPid, emisor, :recibir, text} -> 
+        IO.puts "CLIENT-#{inspect self}: Recibí mensaje de #{inspect emisor}"
+        :timer.sleep(3* 1000)
+        send self, {serverPid, emisor, :leer, text}
+        loop(server)
       {serverPid, emisor, :leer, text} -> 
       	IO.puts "CLIENT-#{inspect self}: #{inspect emisor} dice: #{inspect text}"
       	send serverPid, {self, :visto, text}
